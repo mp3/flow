@@ -48,4 +48,62 @@ pub enum Commands {
     
     /// Open the Terminal UI
     Ui,
+
+    /// Manage notes
+    #[command(subcommand)]
+    Note(NoteCommands),
+}
+
+#[derive(Subcommand)]
+pub enum NoteCommands {
+    /// Add a new note
+    Add {
+        /// Note title
+        title: String,
+
+        /// Note content
+        #[arg(short, long)]
+        content: Option<String>,
+
+        /// Tags (comma separated)
+        #[arg(short, long, value_delimiter = ',')]
+        tags: Vec<String>,
+    },
+
+    /// List notes
+    Ls {
+        /// Show all notes (ignore context)
+        #[arg(short, long)]
+        all: bool,
+    },
+
+    /// Show a note
+    Show {
+        /// Note ID
+        id: i64,
+    },
+
+    /// Remove a note
+    Rm {
+        /// Note ID
+        id: i64,
+    },
+
+    /// Edit a note
+    Edit {
+        /// Note ID
+        id: i64,
+
+        /// New title
+        #[arg(short, long)]
+        title: Option<String>,
+
+        /// New content
+        #[arg(short, long)]
+        content: Option<String>,
+
+        /// New tags (comma separated)
+        #[arg(short = 'g', long, value_delimiter = ',')]
+        tags: Option<Vec<String>>,
+    },
 }

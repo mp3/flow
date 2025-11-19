@@ -1,4 +1,4 @@
-use crate::models::{Priority, Status, Task};
+use crate::models::{Priority, Status, Task, Note};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local};
 use directories::ProjectDirs;
@@ -27,6 +27,18 @@ impl TaskRepository {
                 status TEXT NOT NULL,
                 priority TEXT NOT NULL,
                 due_date TEXT,
+                project_path TEXT,
+                created_at TEXT NOT NULL,
+                tags TEXT
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS notes (
+                id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL,
+                content TEXT,
                 project_path TEXT,
                 created_at TEXT NOT NULL,
                 tags TEXT
@@ -102,6 +114,97 @@ impl TaskRepository {
 
     pub fn delete_task(&self, id: i64) -> Result<()> {
         self.conn.execute("DELETE FROM tasks WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn add_note(&self, note: &Note) -> Result<i64> {
+        let tags_str = serde_json::to_string(&note.tags)?;
+        self.conn.execute(
+            "INSERT INTO notes (title, content, project_path, created_at, tags)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                note.title,
+                note.content,
+                note.project_path,
+                note.created_at.to_rfc3339(),
+                tags_str
+            ],
+        )?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn get_notes(&self, project_filter: Option<&str>) -> Result<Vec<Note>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, title, content, project_path, created_at, tags 
+             FROM notes 
+             WHERE ?1 IS NULL OR project_path = ?1"
+        )?;
+
+        let note_iter = stmt.query_map(params![project_filter], |row| {
+            let created_at_str: String = row.get(4)?;
+            let tags_str: String = row.get(5)?;
+
+            Ok(Note {
+                id: Some(row.get(0)?),
+                title: row.get(1)?,
+                content: row.get(2)?,
+                project_path: row.get(3)?,
+                created_at: DateTime::parse_from_rfc3339(&created_at_str)
+                    .map(|dt| dt.with_timezone(&Local))
+                    .unwrap_or_else(|_| Local::now()),
+                tags: serde_json::from_str(&tags_str).unwrap_or_default(),
+            })
+        })?;
+
+        let mut notes = Vec::new();
+        for note in note_iter {
+            notes.push(note?);
+        }
+        Ok(notes)
+    }
+
+    pub fn get_note(&self, id: i64) -> Result<Note> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, title, content, project_path, created_at, tags 
+             FROM notes 
+             WHERE id = ?1"
+        )?;
+
+        let note = stmt.query_row(params![id], |row| {
+            let created_at_str: String = row.get(4)?;
+            let tags_str: String = row.get(5)?;
+
+            Ok(Note {
+                id: Some(row.get(0)?),
+                title: row.get(1)?,
+                content: row.get(2)?,
+                project_path: row.get(3)?,
+                created_at: DateTime::parse_from_rfc3339(&created_at_str)
+                    .map(|dt| dt.with_timezone(&Local))
+                    .unwrap_or_else(|_| Local::now()),
+                tags: serde_json::from_str(&tags_str).unwrap_or_default(),
+            })
+        })?;
+
+        Ok(note)
+    }
+
+    pub fn delete_note(&self, id: i64) -> Result<()> {
+        self.conn.execute("DELETE FROM notes WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn update_note(&self, id: i64, title: Option<String>, content: Option<String>, tags: Option<Vec<String>>) -> Result<()> {
+        if let Some(t) = title {
+            self.conn.execute("UPDATE notes SET title = ?1 WHERE id = ?2", params![t, id])?;
+        }
+        if let Some(c) = content {
+            self.conn.execute("UPDATE notes SET content = ?1 WHERE id = ?2", params![c, id])?;
+        }
+        if let Some(t) = tags {
+            let tags_str = serde_json::to_string(&t)?;
+            self.conn.execute("UPDATE notes SET tags = ?1 WHERE id = ?2", params![tags_str, id])?;
+        }
         Ok(())
     }
 }

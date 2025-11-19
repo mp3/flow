@@ -36,6 +36,29 @@ See **all** tasks:
 flow ls --all
 ```
 
+### 📝 Notes
+Capture ideas and snippets without leaving your terminal.
+
+**Add a note:**
+```bash
+flow note add "API Key" --content "sk-123456789" --tags "secret,api"
+```
+
+**List notes (scoped to project):**
+```bash
+flow note ls
+```
+
+**Show a note:**
+```bash
+flow note show 1
+```
+
+**Edit a note:**
+```bash
+flow note edit 1 --title "New Title" --content "New Content"
+```
+
 ### Interactive Mode
 Launch the TUI:
 ```bash

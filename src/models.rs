@@ -78,3 +78,13 @@ impl Task {
     // Constructor removed as it is currently unused
 
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Note {
+    pub id: Option<i64>,
+    pub title: String,
+    pub content: Option<String>,
+    pub project_path: Option<String>,
+    pub created_at: DateTime<Local>,
+    pub tags: Vec<String>,
+}

@@ -104,6 +104,76 @@ fn main() -> Result<()> {
             repo.delete_task(id)?;
             println!("{} Task {} removed.", "✔".green(), id);
         }
+        Some(Commands::Note(note_cmd)) => match note_cmd {
+            cli::NoteCommands::Add {
+                title,
+                content,
+                tags,
+            } => {
+                let project_path = std::env::current_dir()?.to_string_lossy().to_string();
+                let note = models::Note {
+                    id: None,
+                    title,
+                    content,
+                    project_path: Some(project_path),
+                    created_at: Local::now(),
+                    tags,
+                };
+                let id = repo.add_note(&note)?;
+                println!("Note added with ID: {}", id);
+            }
+            cli::NoteCommands::Ls { all } => {
+                let project_path = if all {
+                    None
+                } else {
+                    Some(std::env::current_dir()?.to_string_lossy().to_string())
+                };
+                let notes = repo.get_notes(project_path.as_deref())?;
+                if notes.is_empty() {
+                    println!("No notes found.");
+                } else {
+                    println!("{:<4} {:<20} {:<30} {:<20}", "ID", "Title", "Content", "Tags");
+                    println!("{:-<4} {:-<20} {:-<30} {:-<20}", "", "", "", "");
+                    for note in notes {
+                        let content_preview = note.content.unwrap_or_default();
+                        let content_preview = if content_preview.len() > 30 {
+                            format!("{}...", &content_preview[..27])
+                        } else {
+                            content_preview
+                        };
+                        println!(
+                            "{:<4} {:<20} {:<30} {:<20}",
+                            note.id.unwrap_or(0),
+                            note.title,
+                            content_preview,
+                            note.tags.join(", ")
+                        );
+                    }
+                }
+            }
+            cli::NoteCommands::Show { id } => {
+                let note = repo.get_note(id)?;
+                println!("ID: {}", note.id.unwrap_or(0));
+                println!("Title: {}", note.title);
+                println!("Created: {}", note.created_at.format("%Y-%m-%d %H:%M"));
+                println!("Tags: {}", note.tags.join(", "));
+                println!("----------------------------------------");
+                println!("{}", note.content.unwrap_or_default());
+            }
+            cli::NoteCommands::Rm { id } => {
+                repo.delete_note(id)?;
+                println!("Note {} deleted.", id);
+            }
+            cli::NoteCommands::Edit {
+                id,
+                title,
+                content,
+                tags,
+            } => {
+                repo.update_note(id, title, content, tags)?;
+                println!("Note {} updated.", id);
+            }
+        },
         Some(Commands::Ui) => {
             tui::run(&repo)?;
         }
